@@ -1,0 +1,148 @@
+/* Fira Code (headings/mono) + Fira Sans (body) — per implementation_plan */
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS Custom Properties ───────────────────────────────────── */
+:root {
+  /* Shadow depth system per implementation_plan */
+  --shadow-sm:  0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.35);
+  --shadow-lg:  0 10px 24px rgba(0,0,0,0.45);
+  --shadow-xl:  0 20px 40px rgba(0,0,0,0.55);
+
+  /* Contrast-calibrated light mode per plan: bg #F8FAFC, text #1E293B */
+  --bg-light:   #F8FAFC;
+  --text-light: #1E293B;
+
+  --radius-card: 1.5rem;
+  --radius-btn:  0.75rem;
+  --transition:  all 0.2s ease;
+}
+
+/* ── Base ─────────────────────────────────────────────────────── */
+@layer base {
+  :root { color-scheme: dark; }
+
+  html { @apply scroll-smooth; }
+
+  body {
+    @apply bg-dark-900 text-slate-100 font-sans antialiased;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+
+  /* Fira Code for all headings — techy/HUD feel per plan */
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-mono;
+  }
+
+  /* Accessible focus rings — 3px per implementation_plan */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary-400 ring-offset-2 ring-offset-dark-900;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar       { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-dark-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-dark-500;
+  }
+}
+
+/* ── Components ───────────────────────────────────────────────── */
+@layer components {
+
+  /* Glass panel — backdrop blur, dark mode optimized */
+  .glass-panel {
+    @apply bg-dark-800/60 backdrop-blur-xl border border-white/10 shadow-xl;
+  }
+
+  /* Primary button — Blue per implementation_plan */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2
+           px-6 py-3
+           bg-primary-600 text-white font-semibold rounded-xl
+           hover:bg-primary-500 hover:shadow-primary-glow
+           shadow-lg shadow-primary-900/40
+           transition-all duration-200
+           active:scale-[0.97]
+           cursor-pointer
+           select-none;
+  }
+
+  /* Secondary / CTA button — Orange per implementation_plan */
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2
+           px-6 py-3
+           bg-secondary-600 text-white font-semibold rounded-xl
+           hover:bg-secondary-500 hover:shadow-secondary-glow
+           shadow-lg shadow-secondary-900/40
+           transition-all duration-200
+           active:scale-[0.97]
+           cursor-pointer
+           select-none;
+  }
+
+  /* Outline button */
+  .btn-outline {
+    @apply flex items-center justify-center gap-2
+           px-6 py-3
+           border border-white/10 text-slate-300 font-semibold rounded-xl
+           hover:bg-dark-700 hover:border-white/20 hover:text-white
+           transition-all duration-200
+           active:scale-[0.97]
+           cursor-pointer
+           select-none;
+  }
+
+  /* Badge / chip */
+  .badge {
+    @apply inline-flex items-center gap-1.5
+           px-3 py-1 rounded-full
+           text-xs font-bold uppercase tracking-wider;
+  }
+
+  /* Prose overrides for rendered markdown content */
+  .quest-content { @apply text-slate-200 leading-relaxed; }
+  .quest-content h1 { @apply text-3xl font-bold text-white mb-4 mt-8 font-mono; }
+  .quest-content h2 { @apply text-2xl font-bold text-primary-300 mb-3 mt-7 font-mono; }
+  .quest-content h3 { @apply text-xl font-semibold text-primary-400 mb-2 mt-5 font-mono; }
+  .quest-content p  { @apply mb-4 text-lg; }
+  .quest-content ul { @apply list-none space-y-2 mb-4; }
+  .quest-content ol { @apply list-decimal list-inside space-y-2 mb-4 pl-4; }
+  .quest-content li { @apply flex items-start gap-2; }
+  .quest-content li::before {
+    content: '▸';
+    @apply text-primary-400 mt-0.5 shrink-0;
+  }
+  .quest-content ol li::before { content: none; }
+  .quest-content strong { @apply text-white font-bold; }
+  .quest-content em     { @apply text-primary-300 italic; }
+  .quest-content code {
+    @apply font-mono text-sm bg-dark-700 text-secondary-300
+           px-1.5 py-0.5 rounded;
+  }
+  .quest-content pre {
+    @apply bg-dark-950 rounded-xl p-5 overflow-x-auto mb-4
+           border border-white/5;
+  }
+  .quest-content pre code {
+    @apply bg-transparent p-0 text-slate-300;
+  }
+  .quest-content blockquote {
+    @apply border-l-4 border-primary-500 pl-4 text-slate-300
+           italic my-4;
+  }
+  .quest-content hr {
+    @apply border-white/10 my-6;
+  }
+  .quest-content a {
+    @apply text-primary-400 underline hover:text-primary-300
+           cursor-pointer;
+  }
+}

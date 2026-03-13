@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\"d:/projetos/Mapa da:*)"
+    ],
+    "additionalDirectories": [
+      "D:\\projetos\\Mapa da Aprovação IFCE - Subárea 142",
+      "C:\\Users\\WS09WCC2\\.claude\\projects\\d--projetos-Mapa-da-Aprova--o-IFCE---Sub-rea-142"
+    ]
+  }
+}
