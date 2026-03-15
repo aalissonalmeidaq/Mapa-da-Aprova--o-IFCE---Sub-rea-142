@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { CheckCircle2, XCircle, Zap, LogOut, Shield } from 'lucide-react'
+import { CheckCircle2, XCircle, Zap, LogOut, Shield, Calendar, Target } from 'lucide-react'
 import { supabase } from './lib/supabase'
 import { useUserStore } from './store/userStore'
 import { Auth } from './pages/Auth'
 import { QuestMap, type Quest } from './components/QuestMap'
 import { QuestPlayer } from './pages/QuestPlayer'
-
-const MOCK_QUESTS: Quest[] = [
-  { id: 'q-1', title: 'Fundamentos de Algoritmos', topic: 'Estruturas de Dados LIFO/FIFO', type: 'Principal', status: 'available', duration: 120, xpReward: 200 },
-  { id: 'q-2', title: 'Português', topic: 'Compreensão e Inteligência Textual', type: 'Secundaria_PT', status: 'locked', duration: 60, xpReward: 100 },
-  { id: 'q-3', title: 'Didática do Ensino', topic: 'Metodologias Ativas no IFCE', type: 'Secundaria_Didatica', status: 'locked', duration: 60, xpReward: 150 }
-]
+import { getQuestsForDate, getTodaySchedule, getCurrentWeek, getDaysUntilExam } from './data/schedule'
 
 function Dashboard() {
   const { user, profile, signOut } = useUserStore()
-  const [quests, setQuests] = useState<Quest[]>(MOCK_QUESTS)
+
+  // Load quests from cronograma based on today's date
+  const todaySchedule = getTodaySchedule()
+  const initialQuests = getQuestsForDate()
+
+  const [quests, setQuests] = useState<Quest[]>(initialQuests.length > 0 ? initialQuests : getQuestsForDate('16/03'))
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null)
   const [viewState, setViewState] = useState<'MAP' | 'QUEST' | 'RESULT'>('MAP')
   const [lastResult, setLastResult] = useState<{ score: number; passed: boolean } | null>(null)
+
+  const currentWeek = getCurrentWeek()
+  const daysUntilExam = getDaysUntilExam()
 
   const handleSelectQuest = (q: Quest) => {
     setActiveQuest(q)
@@ -31,8 +34,11 @@ function Dashboard() {
     if (passed && activeQuest) {
       const idx = quests.findIndex(q => q.id === activeQuest.id)
       const updated = [...quests]
-      updated[idx].status = 'completed'
-      if (idx + 1 < updated.length) updated[idx + 1].status = 'available'
+      updated[idx] = { ...updated[idx], status: 'completed' }
+      // Unlock next quest
+      if (idx + 1 < updated.length && updated[idx + 1].status === 'locked') {
+        updated[idx + 1] = { ...updated[idx + 1], status: 'available' }
+      }
       setQuests(updated)
     }
   }
@@ -111,10 +117,10 @@ function Dashboard() {
       <div className="absolute top-[-10%] right-[-5%] w-[40rem] h-[40rem] bg-primary-600/8 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] left-[-5%] w-[30rem] h-[30rem] bg-secondary-600/8 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center pt-12 md:pt-20 px-6 md:px-12">
+      <div className="relative z-10 max-w-7xl mx-auto flex flex-col items-center pt-8 md:pt-20 px-4 md:px-12">
 
         {/* Top bar */}
-        <div className="flex w-full justify-between items-center mb-14">
+        <div className="flex w-full justify-between items-center mb-8 md:mb-14">
           <div className="flex items-center gap-4">
             <div className="w-11 h-11 bg-primary-500/15 rounded-full flex items-center justify-center
                             border border-primary-500/20 font-bold font-mono text-primary-400 uppercase">
@@ -136,14 +142,30 @@ function Dashboard() {
         </div>
 
         {/* World title */}
-        <h1 className="text-4xl md:text-6xl font-bold font-mono text-transparent bg-clip-text
+        <h1 className="text-2xl sm:text-4xl md:text-6xl font-bold font-mono text-transparent bg-clip-text
                        bg-gradient-to-br from-white via-slate-200 to-slate-500
-                       mb-4 text-center tracking-tight">
-          Mundo {profile?.current_world || 1}: A Fortaleza
+                       mb-4 text-center tracking-tight leading-tight">
+          Semana {currentWeek}: {currentWeek <= 2 ? 'Fundamentos' : currentWeek <= 4 ? 'Intermediário' : 'Sprint Final'}
         </h1>
 
+        {/* Countdown & Stats */}
+        <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 mb-6">
+          <div className="flex items-center gap-2 px-4 py-2 bg-dark-800/80 rounded-xl border border-white/5">
+            <Calendar className="w-4 h-4 text-primary-400" />
+            <span className="text-sm font-sans text-slate-400">
+              <span className="text-white font-bold">{daysUntilExam}</span> dias para a prova
+            </span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-dark-800/80 rounded-xl border border-white/5">
+            <Target className="w-4 h-4 text-secondary-400" />
+            <span className="text-sm font-sans text-slate-400">
+              Prova: <span className="text-white font-bold">26/04</span>
+            </span>
+          </div>
+        </div>
+
         {/* XP bar */}
-        <div className="w-full max-w-sm mb-12">
+        <div className="w-full max-w-sm mb-8 md:mb-12">
           <div className="flex justify-between text-xs text-slate-500 font-sans mb-2 px-1">
             <span className="flex items-center gap-1">
               <Zap className="w-3 h-3 text-secondary-400" />
@@ -159,15 +181,24 @@ function Dashboard() {
           </div>
         </div>
 
-        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/8 to-transparent mb-10" />
+        <div className="w-full h-px bg-gradient-to-r from-transparent via-white/10 to-transparent mb-6 md:mb-10" />
 
         {/* Quest section */}
         <div className="w-full">
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold font-mono text-white">Quests do Dia</h2>
-            <p className="text-slate-500 mt-1.5 font-sans text-sm">{today} · Meta de Foco: 4h</p>
+            <p className="text-slate-500 mt-1.5 font-sans text-sm">
+              {today} · {todaySchedule?.dayOfWeek || 'Sem cronograma'} · Carga: {todaySchedule?.hours || 'N/D'}
+            </p>
           </div>
-          <QuestMap quests={quests} onSelectQuest={handleSelectQuest} />
+          {quests.length > 0 ? (
+            <QuestMap quests={quests} onSelectQuest={handleSelectQuest} />
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-slate-500 font-sans text-lg">Nenhuma missão para hoje no cronograma.</p>
+              <p className="text-slate-600 font-sans text-sm mt-2">Aproveite para revisar conteúdos anteriores.</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

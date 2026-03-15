@@ -33,12 +33,12 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
   return (
     <div className="w-full max-w-5xl mx-auto py-8">
       <div className="relative">
-        {/* Connector line — desktop */}
+        {/* Connector line — desktop only */}
         <div className="absolute top-[4.5rem] left-[10%] right-[10%] h-0.5
                         bg-gradient-to-r from-transparent via-dark-700 to-transparent
-                        hidden md:block z-0 pointer-events-none" />
+                        hidden lg:block z-0 pointer-events-none" />
 
-        <div className="flex flex-col md:flex-row gap-6 relative z-10">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 relative z-10">
           {quests.map((quest, idx) => {
             const Icon     = QUEST_ICONS[quest.type as keyof typeof QUEST_ICONS] || Star
             const label    = TYPE_LABELS[quest.type] || quest.type.replace('_', ' ')
@@ -55,8 +55,9 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
                 onKeyDown={(e) => e.key === 'Enter' && isAvail && onSelectQuest(quest)}
                 aria-disabled={!isAvail}
                 className={[
-                  'relative flex-1 rounded-[2rem] p-6 md:p-8',
+                  'relative flex-1 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8',
                   'transition-all duration-300',
+                  'active:scale-[0.98]',
                   isAvail
                     ? 'glass-panel cursor-pointer hover:-translate-y-2 hover:shadow-primary-glow ring-1 ring-primary-500/40'
                     : isDone
@@ -66,8 +67,8 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
               >
                 {/* Mobile connector */}
                 {idx < quests.length - 1 && (
-                  <div className="absolute bottom-[-1.75rem] left-1/2 w-0.5 h-7
-                                  bg-dark-700 -translate-x-1/2 md:hidden" />
+                  <div className="absolute bottom-[-1.25rem] left-1/2 w-0.5 h-5
+                                  bg-dark-700 -translate-x-1/2 lg:hidden" />
                 )}
 
                 {/* Header row */}
@@ -108,7 +109,7 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
                     {label}
                   </span>
                   <h3 className={[
-                    'text-xl font-bold leading-snug font-mono',
+                    'text-base md:text-xl font-bold leading-snug font-mono',
                     isLocked ? 'text-slate-600' : 'text-white',
                   ].join(' ')}>
                     {quest.title}

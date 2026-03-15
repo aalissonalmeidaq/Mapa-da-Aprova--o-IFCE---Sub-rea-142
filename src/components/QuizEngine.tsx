@@ -40,11 +40,11 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto w-full glass-panel rounded-[2rem] p-8 md:p-12
+    <div className="max-w-4xl mx-auto w-full glass-panel rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-12
                     animate-fade-in shadow-xl">
 
       {/* Quiz header */}
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-10">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-6 md:mb-10">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-secondary-500 animate-pulse" />
           <span className="text-slate-400 font-semibold uppercase tracking-widest
@@ -75,7 +75,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
       </div>
 
       {/* Question */}
-      <h2 className="text-xl md:text-2xl font-bold text-white mb-8 leading-snug font-mono">
+      <h2 className="text-lg md:text-2xl font-bold text-white mb-6 md:mb-8 leading-snug font-mono">
         {question.text}
       </h2>
 
@@ -101,9 +101,10 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
               disabled={showAnswer}
               onClick={() => setSelectedOption(idx)}
               className={[
-                'w-full text-left p-5 rounded-[1.25rem] border-2',
-                'flex items-start gap-4',
+                'w-full text-left p-4 md:p-5 rounded-[1.25rem] border-2',
+                'flex items-start gap-3 md:gap-4',
                 'font-medium transition-all duration-200',
+                'min-h-[3.5rem]',
                 !showAnswer && isSelected ? 'scale-[1.01]' : '',
                 cls,
               ].join(' ')}
@@ -120,7 +121,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
                 {String.fromCharCode(65 + idx)}
               </div>
 
-              <span className="leading-relaxed text-base font-sans flex-1">{opt}</span>
+              <span className="leading-relaxed text-sm md:text-base font-sans flex-1">{opt}</span>
 
               {showAnswer && isCorrect  && <CheckCircle2 className="w-6 h-6 ml-auto text-green-400 shrink-0 mt-0.5" />}
               {showAnswer && isSelected && !isCorrect && <XCircle className="w-6 h-6 ml-auto text-red-400 shrink-0 mt-0.5" />}
@@ -148,7 +149,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
       )}
 
       {/* Action row */}
-      <div className="flex justify-between items-center pt-5 border-t border-white/8">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-5 border-t border-white/10">
         {/* Score tracker */}
         <span className="text-sm text-slate-500 font-sans">
           {score} acerto{score !== 1 ? 's' : ''} até agora

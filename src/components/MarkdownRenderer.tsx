@@ -1,8 +1,9 @@
 /**
  * Lightweight Markdown → JSX renderer.
  * Handles: headings (h1-h4), bold, italic, inline code, code blocks,
- * unordered lists, ordered lists, blockquotes, horizontal rules, paragraphs.
- * Content is from our own trusted Gemini Edge Function — safe to render.
+ * unordered lists, ordered lists, blockquotes, horizontal rules,
+ * tables, paragraphs.
+ * Content is from our own trusted Gemini API — safe to render.
  */
 
 interface MarkdownRendererProps {
@@ -68,6 +69,41 @@ function renderLines(lines: string[]): string {
       continue
     }
 
+    // Table — detect by pipe characters on header + separator rows
+    if (line.includes('|') && i + 1 < lines.length && /^\|?\s*[-:]+[-|\s:]*$/.test(lines[i + 1])) {
+      const headerCells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
+      const alignRow = lines[i + 1]
+      const aligns = alignRow.split('|').map(c => c.trim()).filter(c => c.length > 0).map(c => {
+        if (c.startsWith(':') && c.endsWith(':')) return 'center'
+        if (c.endsWith(':')) return 'right'
+        return 'left'
+      })
+
+      let tableHtml = '<table><thead><tr>'
+      headerCells.forEach((cell, ci) => {
+        const align = aligns[ci] || 'left'
+        tableHtml += `<th style="text-align:${align}">${renderInline(cell)}</th>`
+      })
+      tableHtml += '</tr></thead><tbody>'
+
+      i += 2 // skip header + separator
+
+      while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') {
+        const cells = lines[i].split('|').map(c => c.trim()).filter(c => c.length > 0)
+        tableHtml += '<tr>'
+        cells.forEach((cell, ci) => {
+          const align = aligns[ci] || 'left'
+          tableHtml += `<td style="text-align:${align}">${renderInline(cell)}</td>`
+        })
+        tableHtml += '</tr>'
+        i++
+      }
+
+      tableHtml += '</tbody></table>'
+      html.push(tableHtml)
+      continue
+    }
+
     // Blockquote
     if (line.startsWith('> ')) {
       const quoteLines: string[] = []
@@ -117,7 +153,8 @@ function renderLines(lines: string[]): string {
       !lines[i].startsWith('> ') &&
       !/^[-*+]\s/.test(lines[i]) &&
       !/^\d+\.\s/.test(lines[i]) &&
-      !/^[-*_]{3,}$/.test(lines[i].trim())
+      !/^[-*_]{3,}$/.test(lines[i].trim()) &&
+      !(lines[i].includes('|') && i + 1 < lines.length && /^\|?\s*[-:]+[-|\s:]*$/.test(lines[i + 1]))
     ) {
       paraLines.push(renderInline(lines[i]))
       i++
@@ -137,7 +174,7 @@ export function MarkdownRenderer({ content, className = '' }: MarkdownRendererPr
   return (
     <div
       className={`quest-content ${className}`}
-      // Content from our own trusted Gemini Edge Function
+      // Content from our own trusted Gemini API
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

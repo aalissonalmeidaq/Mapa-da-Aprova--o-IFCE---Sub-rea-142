@@ -1,13 +1,21 @@
-import { useState, useEffect } from 'react'
-import { ArrowLeft, BrainCircuit, Swords, Loader2, FileText } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ArrowLeft, BrainCircuit, Swords, Loader2, FileText, BookOpen, DatabaseZap } from 'lucide-react'
 import { QuestTimer } from '../components/QuestTimer'
 import { QuizEngine, type Question } from '../components/QuizEngine'
 import { MarkdownRenderer } from '../components/MarkdownRenderer'
-import { supabase } from '../lib/supabase'
+import { generateQuestContent, generateQuiz } from '../lib/gemini'
+import { getCachedContent, saveCachedContent, type CacheSource } from '../lib/questCache'
 
 // Duration per implementation_plan: 2h principal, 1h secondary
 function getDurationMinutes(type: string): number {
   return type === 'Principal' ? 120 : 60
+}
+
+const TYPE_LABELS: Record<string, string> = {
+  'Principal': '📌 Conhecimentos Específicos',
+  'Secundaria_PT': '📝 Língua Portuguesa',
+  'Secundaria_Didatica': '📚 Docência e Didática',
+  'Secundaria_Legis': '⚖️ Legislação',
 }
 
 export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { questId: string, topic: string, type: string, onBack: () => void, onComplete: (score: number, passed: boolean) => void }) {
@@ -17,34 +25,70 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
   const [timerReady,     setTimerReady]     = useState(false)
   const [showQuiz,       setShowQuiz]       = useState(false)
   const [questions,      setQuestions]      = useState<Question[]>([])
+  const [cacheSource,    setCacheSource]    = useState<CacheSource>(null)
 
+  const [scrollProgress, setScrollProgress] = useState(0)
   const durationMinutes = getDurationMinutes(type)
 
+  const handleScroll = useCallback(() => {
+    const scrollTop = window.scrollY
+    const docHeight = document.documentElement.scrollHeight - window.innerHeight
+    if (docHeight > 0) {
+      setScrollProgress(Math.min((scrollTop / docHeight) * 100, 100))
+    }
+  }, [])
+
   useEffect(() => {
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
+  useEffect(() => {
+    let cancelled = false
+
     async function fetchQuest() {
+      // 1️⃣ Verificar cache (localStorage → Supabase) antes de chamar a API
+      const { content: cached, source } = await getCachedContent(questId)
+      if (cached) {
+        if (!cancelled) {
+          setContent(cached)
+          setCacheSource(source)
+          setLoadingContent(false)
+        }
+        return
+      }
+
+      // 2️⃣ Cache miss — gerar via Gemini com streaming
       try {
-        const { data, error } = await supabase.functions.invoke('generate-quest', {
-          body: { topic, type }
+        const finalContent = await generateQuestContent(topic, type, (accumulated) => {
+          if (!cancelled) {
+            setContent(accumulated)
+            setLoadingContent(false)
+          }
         })
-        if (error) throw error
-        setContent(data.content || 'Nenhum conteúdo recebido.')
+        // Salvar em localStorage + Supabase para próximas visitas
+        if (!cancelled && finalContent) {
+          setCacheSource(null) // conteúdo novo, sem fonte de cache
+          await saveCachedContent(questId, topic, type, finalContent)
+        }
       } catch (err: any) {
-        setContent(`**Erro ao carregar missão:** ${err.message}\n\nRetorne ao mapa e tente novamente.`)
+        if (cancelled) return
+        console.error('QuestPlayer fetchQuest error:', err)
+        const errorMessage = err.message || 'Erro desconhecido'
+        setContent(`**Erro ao carregar missão:** ${errorMessage}\n\nVerifique se a variável VITE_GEMINI_API_KEY está configurada no arquivo .env.local.\n\nRetorne ao mapa e tente novamente.`)
       } finally {
-        setLoadingContent(false)
+        if (!cancelled) setLoadingContent(false)
       }
     }
     fetchQuest()
+    return () => { cancelled = true }
   }, [questId, topic, type])
 
   const handleStartQuiz = async () => {
     setLoadingQuiz(true)
     try {
-      const { data, error } = await supabase.functions.invoke('generate-quiz', {
-        body: { topic, content }
-      })
-      if (error) throw error
-      setQuestions(data.questions || [])
+      const quizQuestions = await generateQuiz(topic, content)
+      setQuestions(quizQuestions as Question[])
       setShowQuiz(true)
     } catch (err: any) {
       alert(`Erro ao gerar Quiz via IA: ${err.message}`)
@@ -87,8 +131,20 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
   }
 
   // Reading / study state
+  const typeLabel = TYPE_LABELS[type] || type
+  const wordCount = content ? content.split(/\s+/).length : 0
+  const readingTime = Math.max(1, Math.ceil(wordCount / 200))
+
   return (
     <div className="min-h-screen text-white bg-dark-900 animate-fade-in">
+      {/* Reading progress bar */}
+      <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-dark-800">
+        <div
+          className="h-full bg-gradient-to-r from-primary-600 to-primary-400 transition-all duration-150"
+          style={{ width: `${scrollProgress}%` }}
+        />
+      </div>
+
       <div className="fixed top-[-10%] right-[-5%] w-[35rem] h-[35rem] bg-primary-600/8 blur-[120px] rounded-full pointer-events-none" />
       <div className="fixed bottom-[-10%] left-[-5%] w-[28rem] h-[28rem] bg-secondary-600/8 blur-[120px] rounded-full pointer-events-none" />
 
@@ -102,17 +158,35 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
               Retornar ao Mapa
             </button>
 
-            <div className="glass-panel p-8 md:p-10 rounded-[2rem] min-h-[70vh]">
+            <div className="glass-panel p-6 md:p-10 lg:p-12 rounded-[2rem] min-h-[70vh]">
               {/* Header */}
-              <div className="flex items-center gap-4 mb-8 pb-7 border-b border-white/8">
-                <div className="p-3 bg-primary-500/15 rounded-2xl ring-1 ring-primary-500/30">
+              <div className="flex items-start gap-4 mb-8 pb-7 border-b border-white/8">
+                <div className="p-3.5 bg-primary-500/15 rounded-2xl ring-1 ring-primary-500/30 mt-0.5">
                   <BrainCircuit className="text-primary-400 w-7 h-7" />
                 </div>
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 font-sans mb-0.5">
-                    Conteúdo Gerado por IA
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary-400 font-sans
+                                     bg-primary-500/10 px-2.5 py-1 rounded-lg">
+                      {typeLabel}
+                    </span>
+                    {!loadingContent && (
+                      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-600 font-sans">
+                        <BookOpen className="w-3 h-3" />
+                        ~{readingTime} min de leitura
+                      </span>
+                    )}
+                    {!loadingContent && cacheSource && (
+                      <span
+                        title={cacheSource === 'supabase' ? 'Carregado do banco de dados' : 'Carregado do cache local'}
+                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-emerald-500 font-sans bg-emerald-500/10 px-2 py-1 rounded-lg"
+                      >
+                        <DatabaseZap className="w-3 h-3" />
+                        {cacheSource === 'supabase' ? 'cache db' : 'cache local'}
+                      </span>
+                    )}
                   </div>
-                  <h1 className="text-xl md:text-2xl font-bold text-white leading-snug font-mono">
+                  <h1 className="text-xl md:text-2xl font-bold text-white leading-snug font-mono mt-2">
                     {topic}
                   </h1>
                 </div>
@@ -120,18 +194,21 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
 
               {/* Content */}
               {loadingContent ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 text-primary-400 font-semibold font-sans mb-6 animate-pulse">
+                <div className="space-y-4 py-8">
+                  <div className="flex items-center gap-3 text-primary-400 font-semibold font-sans mb-8 animate-pulse">
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    Gerando conteúdo focado no edital...
+                    Gerando material detalhado focado no edital IFCE...
                   </div>
-                  {[100, 90, 95, 80, 100, 70, 85].map((w, i) => (
+                  {[100, 90, 95, 80, 100, 70, 85, 92, 88, 75].map((w, i) => (
                     <div
                       key={i}
                       className="h-4 bg-dark-700 rounded-full animate-pulse"
                       style={{ width: `${w}%`, animationDelay: `${i * 80}ms` }}
                     />
                   ))}
+                  <div className="text-center text-xs text-slate-600 font-sans mt-8 animate-pulse">
+                    Isso pode levar alguns segundos — estamos gerando conteúdo completo e detalhado
+                  </div>
                 </div>
               ) : (
                 <MarkdownRenderer content={content} />
