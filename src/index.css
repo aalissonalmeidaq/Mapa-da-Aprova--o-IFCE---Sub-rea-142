@@ -140,6 +140,12 @@
   .quest-content {
     @apply text-slate-200 leading-[1.85] text-[1.05rem];
     letter-spacing: 0.01em;
+    /* Impede que palavras longas, URLs e termos técnicos estourem o container */
+    overflow-wrap: break-word;
+    word-break: break-word;
+    /* Garante que nada vaze horizontalmente além do painel */
+    overflow-x: hidden;
+    min-width: 0;
   }
 
   /* Headings with decorative accent */
@@ -151,6 +157,8 @@
     @apply text-2xl font-bold text-primary-300 mb-4 mt-9 font-mono
            pb-2 border-b border-white/10
            flex items-center gap-3;
+    /* min-width: 0 essencial em flex containers — sem isso texto não quebra linha */
+    min-width: 0;
   }
   .quest-content h2::before {
     content: '';
@@ -208,10 +216,14 @@
   .quest-content pre {
     @apply bg-dark-950 rounded-2xl p-6 overflow-x-auto mb-6
            border border-white/5 shadow-inner;
+    max-width: 100%;
   }
   .quest-content pre code {
     @apply bg-transparent p-0 text-slate-300 border-0
            text-sm leading-relaxed;
+    /* Strings longas sem espaço (ex: base64, hashes) quebram dentro do bloco */
+    word-break: break-all;
+    overflow-wrap: anywhere;
   }
 
   /* Blockquotes — attention-grabbing callouts */
@@ -232,11 +244,17 @@
   }
 
   /* Tables — clean data presentation */
-  .quest-content table {
-    @apply w-full mb-6 text-sm border-collapse;
-    display: block;
+  /* O wrapper controla o scroll; a table usa display:table normal */
+  .quest-content .table-wrapper {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    margin-bottom: 1.5rem;
+    /* Margem negativa compensa o padding do container para scroll edge-to-edge */
+    border-radius: 0.75rem;
+  }
+  .quest-content table {
+    @apply w-full text-sm border-collapse;
+    min-width: 480px; /* garante legibilidade mínima antes do scroll começar */
   }
   .quest-content thead {
     @apply border-b-2 border-primary-500/30;
@@ -297,8 +315,8 @@
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
   }
-  /* Prevent table from overflowing viewport */
+  /* Tabelas: max-width garante que a tabela não force overflow no parent */
   .quest-content table {
-    min-width: 400px;
+    max-width: 100%;
   }
 }

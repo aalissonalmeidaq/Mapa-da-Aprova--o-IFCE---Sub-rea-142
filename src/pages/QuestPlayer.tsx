@@ -151,8 +151,8 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
       <div className="relative z-10 max-w-6xl mx-auto p-4 md:p-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* Left: Content */}
-          <div className="lg:col-span-2 space-y-5">
+          {/* Left: Content — min-w-0 prevents grid item from overflowing */}
+          <div className="lg:col-span-2 space-y-5 min-w-0">
             <button onClick={onBack} className="btn-outline w-fit text-sm h-10 px-4 rounded-xl group">
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
               Retornar ao Mapa

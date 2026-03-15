@@ -154,8 +154,23 @@ Cada dia possui até 4 missões:
 
 ---
 
+## Decisões de Layout
+
+O conteúdo gerado pela IA pode incluir tabelas largas, blocos de código com strings longas e cabeçalhos técnicos extensos. Algumas regras CSS críticas evitam que isso estoure o layout:
+
+| Regra | Onde | Por quê |
+|---|---|---|
+| `min-width: 0` no grid item | `QuestPlayer.tsx` | CSS Grid tem `min-width: auto` por padrão — sem isso o item cresce além da coluna |
+| `overflow-wrap: break-word` no `.quest-content` | `index.css` | Termos técnicos longos sem espaço (ex: `AlgoritmoDeOrdenacaoQuadratica`) quebram linha |
+| `min-width: 0` no `.quest-content h2` | `index.css` | Headings com `display:flex` também sofrem do mesmo problema de `min-width: auto` |
+| `<div class="table-wrapper">` envolvendo tabelas | `MarkdownRenderer.tsx` | O scroll horizontal deve estar no wrapper, não na `<table>` — senão o `overflow-x` do pai vaza |
+| `max-width: 100%` no `pre` | `index.css` | Blocos de código com linhas muito longas respeitam o container |
+
+---
+
 ## Notas de Versão
 
+- **v1.4** — Correções de overflow do conteúdo gerado: `overflow-wrap`, `min-width: 0` em grid/flex, wrapper de tabelas, `pre` responsivo
 - **v1.3** — Cache persistente em Supabase (`questCache.ts`) + migration SQL
 - **v1.2** — Streaming de IA e cache local em `localStorage`
 - **v1.1** — Otimização mobile e integração com cronograma

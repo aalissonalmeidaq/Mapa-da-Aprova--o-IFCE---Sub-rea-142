@@ -100,7 +100,8 @@ function renderLines(lines: string[]): string {
       }
 
       tableHtml += '</tbody></table>'
-      html.push(tableHtml)
+      // Wrapper com scroll horizontal — necessário para tabelas largas no mobile
+      html.push(`<div class="table-wrapper">${tableHtml}</div>`)
       continue
     }
 
