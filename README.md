@@ -35,13 +35,14 @@ Plataforma de estudos gamificada para o concurso de **Docência em Informática 
 ```
 src/
 ├── components/
-│   ├── MarkdownRenderer.tsx   # Renderiza o conteúdo Markdown da IA
+│   ├── MarkdownRenderer.tsx   # Renderiza o conteúdo Markdown da IA (com guards anti-tabela malformada)
 │   ├── QuestMap.tsx           # Grade visual de missões
 │   ├── QuestTimer.tsx         # Timer de sessão de estudo
 │   └── QuizEngine.tsx         # Motor de quiz (múltipla escolha)
 ├── data/
 │   └── schedule.ts            # Cronograma de 42 dias (16/03 → 26/04)
 ├── lib/
+│   ├── contentSanitizer.ts    # Normaliza Markdown do LLM antes de renderizar (15 regras)
 │   ├── gemini.ts              # Wrapper da API Gemini (streaming + JSON estruturado)
 │   ├── questCache.ts          # Cache de conteúdo (localStorage + Supabase)
 │   └── supabase.ts            # Cliente Supabase
@@ -154,23 +155,76 @@ Cada dia possui até 4 missões:
 
 ---
 
+## Sanitização de Conteúdo
+
+O `contentSanitizer.ts` normaliza o Markdown bruto do Gemini antes de renderizar e antes de salvar no cache, garantindo que tanto visualizações novas quanto do cache sejam limpas.
+
+Pipeline de 15 etapas (`sanitizeMarkdown`):
+
+| # | Etapa | O que corrige |
+|---|---|---|
+| 1 | Normalizar quebras de linha | `\r\n` → `\n` |
+| 2 | Remover BOM e invisíveis | `\uFEFF`, `\u200B` etc. |
+| 3 | Remover preâmbulo | Frases antes do primeiro `#` (ex: "Aqui está o material...") |
+| 4 | Remover comentários finais | "Espero que ajude", "Bons estudos!" ao final |
+| 5 | Remover título duplicado | `# Tópico` igual ao título já exibido pelo QuestPlayer |
+| 6 | Normalizar headings | Se só há `#`, sobe tudo um nível (`#→##`, `##→###`) para não conflitar com o H1 do player |
+| 7 | Corrigir bold com espaços | `** texto **` → `**texto**` |
+| 8 | Corrigir blockquotes | `>texto` → `> texto` |
+| 9 | Normalizar marcadores | `*` e `+` de lista → `-` |
+| 10 | Linha em branco antes de headings | Garante separação visual |
+| 11 | Linha em branco ao redor de blocos de código | Evita fusão com parágrafos |
+| 12 | Linha em branco antes de blockquotes | Idem |
+| 13 | Remover tabelas malformadas | Tabelas com > 7 colunas onde > 55% dos cabeçalhos têm ≤ 2 caracteres são substituídas por aviso em blockquote |
+| 14 | Colapsar linhas em branco | 3+ linhas → 2 |
+| 15 | Trim global | Remove espaços e linhas desnecessários |
+
+---
+
 ## Decisões de Layout
 
-O conteúdo gerado pela IA pode incluir tabelas largas, blocos de código com strings longas e cabeçalhos técnicos extensos. Algumas regras CSS críticas evitam que isso estoure o layout:
+O conteúdo gerado pela IA pode incluir tabelas largas, blocos de código com strings longas e cabeçalhos técnicos extensos. Algumas regras críticas evitam que isso estoure o layout:
+
+### CSS — Overflow e Grid
 
 | Regra | Onde | Por quê |
 |---|---|---|
 | `min-width: 0` no grid item | `QuestPlayer.tsx` | CSS Grid tem `min-width: auto` por padrão — sem isso o item cresce além da coluna |
-| `overflow-wrap: break-word` no `.quest-content` | `index.css` | Termos técnicos longos sem espaço (ex: `AlgoritmoDeOrdenacaoQuadratica`) quebram linha |
-| `min-width: 0` no `.quest-content h2` | `index.css` | Headings com `display:flex` também sofrem do mesmo problema de `min-width: auto` |
-| `<div class="table-wrapper">` envolvendo tabelas | `MarkdownRenderer.tsx` | O scroll horizontal deve estar no wrapper, não na `<table>` — senão o `overflow-x` do pai vaza |
-| `max-width: 100%` no `pre` | `index.css` | Blocos de código com linhas muito longas respeitam o container |
+| `overflow-wrap: break-word` no `.quest-content` | `index.css` | Termos técnicos longos sem espaço quebram linha em vez de estourar |
+| `min-width: 0` no `.quest-content h2` | `index.css` | Headings com `display:flex` sofrem o mesmo bug de `min-width: auto` |
+| **Sem** `overflow-x: hidden` no `.quest-content` | `index.css` | `overflow-x: hidden` no pai corta o scrollbar dos filhos (`.table-wrapper`, `pre`) |
+
+### Tabelas com Scroll Horizontal
+
+| Regra | Onde | Por quê |
+|---|---|---|
+| `<div class="table-wrapper">` envolvendo tabelas | `MarkdownRenderer.tsx` | O scroll horizontal fica no wrapper; a `<table>` usa `display: table` normalmente |
+| `min-width: 100px` por coluna (`th`, `td`) | `index.css` | Impede colunas de 20–30px onde o texto empilha verticalmente |
+| `max-width: 320px` por célula (`td`) | `index.css` | Limita crescimento para preservar legibilidade e forçar scroll |
+| Scrollbar indigo + gradiente fade na borda direita | `index.css` | Indica visualmente que há conteúdo fora da tela |
+
+### Blocos de Código
+
+| Regra | Onde | Por quê |
+|---|---|---|
+| `max-width: 100%` + `overflow-x: auto` no `pre` | `index.css` | Respeita o container; linha longa aciona scroll horizontal |
+| `white-space: pre` no `pre code` | `index.css` | Preserva indentação do código sem quebrar linha automaticamente |
+| Scrollbar âmbar no `pre` | `index.css` | Diferencia visualmente do scrollbar de tabela |
+
+### Defesa em Três Camadas contra Tabelas Malformadas
+
+O Gemini às vezes gera tabelas com 10+ colunas de 1–2 caracteres (ex: `A | B | C | ...`) que ficam ilegíveis. A defesa é aplicada em três níveis:
+
+1. **`contentSanitizer.ts`** — detecta e substitui a tabela por um aviso antes de renderizar
+2. **`MarkdownRenderer.tsx`** — guard `isContextualLine` impede que itens de lista com `|` virem cabeçalho de tabela; `isMalformed` descarta tabelas com > 8 colunas curtas
+3. **`index.css`** — `min-width: 100px` por coluna garante legibilidade mínima mesmo se uma tabela suspeita passar pelos dois filtros anteriores
 
 ---
 
 ## Notas de Versão
 
-- **v1.4** — Correções de overflow do conteúdo gerado: `overflow-wrap`, `min-width: 0` em grid/flex, wrapper de tabelas, `pre` responsivo
+- **v1.5** — Sanitizador de conteúdo (`contentSanitizer.ts`), defesa em três camadas contra tabelas malformadas, scrollbar estilizada em tabelas (indigo) e código (âmbar), `min-width` por célula
+- **v1.4** — Correções de overflow do conteúdo gerado: `overflow-wrap`, `min-width: 0` em grid/flex, wrapper de tabelas com scroll horizontal, `pre` responsivo
 - **v1.3** — Cache persistente em Supabase (`questCache.ts`) + migration SQL
 - **v1.2** — Streaming de IA e cache local em `localStorage`
 - **v1.1** — Otimização mobile e integração com cronograma

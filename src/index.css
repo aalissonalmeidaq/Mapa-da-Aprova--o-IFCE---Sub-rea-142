@@ -140,12 +140,13 @@
   .quest-content {
     @apply text-slate-200 leading-[1.85] text-[1.05rem];
     letter-spacing: 0.01em;
-    /* Impede que palavras longas, URLs e termos técnicos estourem o container */
+    /* Quebra palavras longas (termos técnicos, URLs) sem esconder scroll dos filhos */
     overflow-wrap: break-word;
     word-break: break-word;
-    /* Garante que nada vaze horizontalmente além do painel */
-    overflow-x: hidden;
     min-width: 0;
+    /* IMPORTANTE: sem overflow-x:hidden aqui — isso cortaria o scrollbar
+       interno do table-wrapper e do pre. O quebra-linha acima já evita
+       que texto simples estoure o container. */
   }
 
   /* Headings with decorative accent */
@@ -214,16 +215,38 @@
 
   /* Code blocks */
   .quest-content pre {
-    @apply bg-dark-950 rounded-2xl p-6 overflow-x-auto mb-6
+    @apply bg-dark-950 rounded-2xl p-6 mb-6
            border border-white/5 shadow-inner;
     max-width: 100%;
+    overflow-x: auto;
+    /* Espaço inferior para o scrollbar não sobrepor o código */
+    padding-bottom: 1.25rem;
+    /* Scrollbar fina cor âmbar — diferencia do scrollbar de tabela */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(245, 158, 11, 0.4) rgba(255, 255, 255, 0.04);
+  }
+  .quest-content pre::-webkit-scrollbar {
+    height: 5px;
+  }
+  .quest-content pre::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+    margin: 0 1.5rem;
+  }
+  .quest-content pre::-webkit-scrollbar-thumb {
+    background: rgba(245, 158, 11, 0.45);
+    border-radius: 9999px;
+  }
+  .quest-content pre::-webkit-scrollbar-thumb:hover {
+    background: rgba(245, 158, 11, 0.7);
   }
   .quest-content pre code {
     @apply bg-transparent p-0 text-slate-300 border-0
            text-sm leading-relaxed;
-    /* Strings longas sem espaço (ex: base64, hashes) quebram dentro do bloco */
-    word-break: break-all;
-    overflow-wrap: anywhere;
+    /* Preserva indentação de código — não quebra linha automaticamente */
+    white-space: pre;
+    word-break: normal;
+    overflow-wrap: normal;
   }
 
   /* Blockquotes — attention-grabbing callouts */
@@ -244,17 +267,50 @@
   }
 
   /* Tables — clean data presentation */
-  /* O wrapper controla o scroll; a table usa display:table normal */
+  /* O wrapper é o único elemento com scroll horizontal.
+     A <table> dentro usa display:table normal para renderizar corretamente. */
   .quest-content .table-wrapper {
+    position: relative;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     margin-bottom: 1.5rem;
-    /* Margem negativa compensa o padding do container para scroll edge-to-edge */
     border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    /* Espaço inferior para o scrollbar não sobrepor a última linha */
+    padding-bottom: 2px;
+    /* Scrollbar fina na cor primária — indica rolagem disponível */
+    scrollbar-width: thin;
+    scrollbar-color: rgba(99, 102, 241, 0.45) rgba(255, 255, 255, 0.04);
+  }
+  .quest-content .table-wrapper::-webkit-scrollbar {
+    height: 5px;
+  }
+  .quest-content .table-wrapper::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 9999px;
+  }
+  .quest-content .table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.5);
+    border-radius: 9999px;
+  }
+  .quest-content .table-wrapper::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.75);
+  }
+  /* Gradiente na borda direita — dica visual de conteúdo fora da tela */
+  .quest-content .table-wrapper::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 5px; /* respeita a altura do scrollbar */
+    width: 2.5rem;
+    background: linear-gradient(to right, transparent, rgba(15, 23, 42, 0.7));
+    pointer-events: none;
+    border-radius: 0 0.75rem 0.75rem 0;
   }
   .quest-content table {
     @apply w-full text-sm border-collapse;
-    min-width: 480px; /* garante legibilidade mínima antes do scroll começar */
+    min-width: 480px;
   }
   .quest-content thead {
     @apply border-b-2 border-primary-500/30;
@@ -264,6 +320,8 @@
            px-4 py-3 text-xs uppercase tracking-wider
            bg-dark-800/60;
     white-space: nowrap;
+    /* Mínimo de 100px por coluna — impede colunas de 20-30px que empilham texto */
+    min-width: 100px;
   }
   .quest-content th:first-child {
     @apply rounded-tl-xl;
@@ -273,6 +331,12 @@
   }
   .quest-content td {
     @apply px-4 py-3 text-slate-300 border-b border-white/5;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    /* Mesma largura mínima das colunas de cabeçalho */
+    min-width: 100px;
+    /* Limita o crescimento máximo para preservar legibilidade e forçar scroll */
+    max-width: 320px;
   }
   .quest-content tbody tr:nth-child(even) {
     @apply bg-dark-800/30;

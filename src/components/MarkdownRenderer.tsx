@@ -69,9 +69,26 @@ function renderLines(lines: string[]): string {
       continue
     }
 
-    // Table — detect by pipe characters on header + separator rows
-    if (line.includes('|') && i + 1 < lines.length && /^\|?\s*[-:]+[-|\s:]*$/.test(lines[i + 1])) {
-      const headerCells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
+    // Table — detect by pipe characters on header + separator rows.
+    // Guard: linhas que começam com lista ou blockquote nunca são cabeçalho de tabela
+    // (evita que "1. > texto | com pipes" vire uma tabela de 10 colunas).
+    const isContextualLine = /^(\s*[-*+]\s|\s*\d+\.\s|>\s*|#{1,4}\s)/.test(line)
+    if (!isContextualLine && line.includes('|') && i + 1 < lines.length && /^\|?\s*[-:]+[-|\s:]*$/.test(lines[i + 1])) {
+      const rawCells = line.split('|').map(c => c.trim()).filter(c => c.length > 0)
+      // Tabelas com > 8 colunas onde a maioria dos cabeçalhos tem ≤ 3 chars são
+      // malformadas (LLM tentou fazer algo que não é tabela). Renderiza como parágrafo.
+      const isMalformed =
+        rawCells.length > 8 &&
+        rawCells.filter(c => c.replace(/\*\*/g, '').length <= 3).length > rawCells.length * 0.6
+      if (isMalformed) {
+        // Pula o separador e as linhas de dados e descarta a tabela quebrada
+        i++ // pula a linha de cabeçalho (atual = 'line') → já estava em 'i'
+        i++ // pula o separador
+        while (i < lines.length && lines[i].includes('|') && lines[i].trim() !== '') i++
+        html.push(`<p class="text-slate-400 text-sm italic">[Tabela comparativa — conteúdo gerado com formatação incompatível]</p>`)
+        continue
+      }
+      const headerCells = rawCells
       const alignRow = lines[i + 1]
       const aligns = alignRow.split('|').map(c => c.trim()).filter(c => c.length > 0).map(c => {
         if (c.startsWith(':') && c.endsWith(':')) return 'center'

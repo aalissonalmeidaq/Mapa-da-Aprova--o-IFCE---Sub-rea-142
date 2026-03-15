@@ -5,6 +5,7 @@ import { QuizEngine, type Question } from '../components/QuizEngine'
 import { MarkdownRenderer } from '../components/MarkdownRenderer'
 import { generateQuestContent, generateQuiz } from '../lib/gemini'
 import { getCachedContent, saveCachedContent, type CacheSource } from '../lib/questCache'
+import { sanitizeMarkdown } from '../lib/contentSanitizer'
 
 // Duration per implementation_plan: 2h principal, 1h secondary
 function getDurationMinutes(type: string): number {
@@ -51,7 +52,7 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
       const { content: cached, source } = await getCachedContent(questId)
       if (cached) {
         if (!cancelled) {
-          setContent(cached)
+          setContent(sanitizeMarkdown(cached, topic))
           setCacheSource(source)
           setLoadingContent(false)
         }
@@ -62,14 +63,17 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
       try {
         const finalContent = await generateQuestContent(topic, type, (accumulated) => {
           if (!cancelled) {
+            // Durante o streaming mostra o conteúdo parcial diretamente
             setContent(accumulated)
             setLoadingContent(false)
           }
         })
-        // Salvar em localStorage + Supabase para próximas visitas
+        // Sanitiza o conteúdo completo, atualiza a tela e salva no cache
         if (!cancelled && finalContent) {
-          setCacheSource(null) // conteúdo novo, sem fonte de cache
-          await saveCachedContent(questId, topic, type, finalContent)
+          const clean = sanitizeMarkdown(finalContent, topic)
+          setContent(clean)
+          setCacheSource(null)
+          await saveCachedContent(questId, topic, type, clean)
         }
       } catch (err: any) {
         if (cancelled) return
