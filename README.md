@@ -223,6 +223,7 @@ O Gemini às vezes gera tabelas com 10+ colunas de 1–2 caracteres (ex: `A | B 
 
 ## Notas de Versão
 
+- **v1.6** — Correção de build em produção (Vercel): ajuste de variáveis não utilizadas no sanitizador e limpeza de avisos de escape em regex
 - **v1.5** — Sanitizador de conteúdo (`contentSanitizer.ts`), defesa em três camadas contra tabelas malformadas, scrollbar estilizada em tabelas (indigo) e código (âmbar), `min-width` por célula
 - **v1.4** — Correções de overflow do conteúdo gerado: `overflow-wrap`, `min-width: 0` em grid/flex, wrapper de tabelas com scroll horizontal, `pre` responsivo
 - **v1.3** — Cache persistente em Supabase (`questCache.ts`) + migration SQL

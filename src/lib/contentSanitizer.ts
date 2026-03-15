@@ -95,7 +95,7 @@ export function sanitizeMarkdown(raw: string, topic: string): string {
   // ── 5. Remover título duplicado (igual ao tópico da missão) ─────
   // Evita mostrar o mesmo título duas vezes (QuestPlayer já exibe o tópico).
   const topicNorm = topic.toLowerCase().trim()
-  text = text.replace(/^(#{1,2})\s+(.+)\n?/, (match, hashes, title) => {
+  text = text.replace(/^(#{1,2})\s+(.+)\n?/, (match, _hashes, title) => {
     const titleNorm = title.toLowerCase().trim()
     // Remove se o título do heading é igual ou contido no tópico
     const isDuplicate =
@@ -134,7 +134,7 @@ export function sanitizeMarkdown(raw: string, topic: string): string {
 
   // ── 9. Normalizar marcadores de lista ───────────────────────────
   // Converte * e + para - em listas não-ordenadas (consistência)
-  text = text.replace(/^(\s*)[\*\+](\s+)/gm, '$1-$2')
+  text = text.replace(/^(\s*)[*+](\s+)/gm, '$1-$2')
 
   // ── 10. Garantir linha em branco antes de headings ──────────────
   text = text.replace(/([^\n])\n(#{1,4}\s)/g, '$1\n\n$2')
