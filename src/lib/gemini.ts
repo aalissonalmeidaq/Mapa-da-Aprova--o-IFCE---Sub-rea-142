@@ -15,7 +15,7 @@ function getGeminiStreamUrl(model: string): string {
 
 async function callGemini(prompt: string, responseSchema?: object): Promise<string> {
   if (!GEMINI_API_KEY) {
-    throw new Error('VITE_GEMINI_API_KEY não configurada no .env.local')
+    throw new Error('VITE_GEMINI_API_KEY não configurada nas variáveis de ambiente')
   }
 
   const body: Record<string, unknown> = {
@@ -73,7 +73,7 @@ async function callGeminiStream(
   onChunk: (accumulated: string) => void,
 ): Promise<string> {
   if (!GEMINI_API_KEY) {
-    throw new Error('VITE_GEMINI_API_KEY não configurada no .env.local')
+    throw new Error('VITE_GEMINI_API_KEY não configurada nas variáveis de ambiente')
   }
 
   const body = {
