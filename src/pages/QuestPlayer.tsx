@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ArrowLeft, BrainCircuit, Swords, Loader2, FileText, BookOpen, DatabaseZap } from 'lucide-react'
 import { QuestTimer } from '../components/QuestTimer'
 import { QuizEngine, type Question } from '../components/QuizEngine'
@@ -30,18 +30,26 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
 
   const [scrollProgress, setScrollProgress] = useState(0)
   const durationMinutes = getDurationMinutes(type)
+  const rafRef = useRef(0)
 
   const handleScroll = useCallback(() => {
-    const scrollTop = window.scrollY
-    const docHeight = document.documentElement.scrollHeight - window.innerHeight
-    if (docHeight > 0) {
-      setScrollProgress(Math.min((scrollTop / docHeight) * 100, 100))
-    }
+    if (rafRef.current) return // skip if already queued
+    rafRef.current = requestAnimationFrame(() => {
+      const scrollTop = window.scrollY
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight
+      if (docHeight > 0) {
+        setScrollProgress(Math.min((scrollTop / docHeight) * 100, 100))
+      }
+      rafRef.current = 0
+    })
   }, [])
 
   useEffect(() => {
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+    }
   }, [handleScroll])
 
   useEffect(() => {
@@ -75,10 +83,10 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
           setCacheSource(null)
           await saveCachedContent(questId, topic, type, clean)
         }
-      } catch (err: any) {
+      } catch (err) {
         if (cancelled) return
         console.error('QuestPlayer fetchQuest error:', err)
-        const errorMessage = err.message || 'Erro desconhecido'
+        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido'
         setContent(`**Erro ao carregar missão:** ${errorMessage}\n\nVerifique se a variável VITE_GEMINI_API_KEY está configurada no arquivo .env.local.\n\nRetorne ao mapa e tente novamente.`)
       } finally {
         if (!cancelled) setLoadingContent(false)
@@ -92,10 +100,26 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
     setLoadingQuiz(true)
     try {
       const quizQuestions = await generateQuiz(topic, content)
-      setQuestions(quizQuestions as Question[])
+      if (!Array.isArray(quizQuestions) || quizQuestions.length === 0) {
+        throw new Error('A IA não retornou questões válidas. Tente novamente.')
+      }
+      // Validate each question has required fields
+      const validated = quizQuestions.filter(
+        (q): q is Question =>
+          typeof q.text === 'string' &&
+          Array.isArray(q.options) &&
+          q.options.length >= 2 &&
+          typeof q.correctIndex === 'number' &&
+          typeof q.explanation === 'string',
+      )
+      if (validated.length === 0) {
+        throw new Error('As questões geradas estão em formato inválido. Tente novamente.')
+      }
+      setQuestions(validated)
       setShowQuiz(true)
-    } catch (err: any) {
-      alert(`Erro ao gerar Quiz via IA: ${err.message}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido'
+      alert(`Erro ao gerar Quiz via IA: ${msg}`)
     } finally {
       setLoadingQuiz(false)
     }
@@ -141,11 +165,15 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
 
   return (
     <div className="min-h-screen text-white bg-dark-900 animate-fade-in">
-      {/* Reading progress bar */}
+      {/* Reading progress bar — GPU-accelerated via transform instead of width */}
       <div className="fixed top-0 left-0 right-0 z-50 h-1 bg-dark-800">
         <div
-          className="h-full bg-gradient-to-r from-primary-600 to-primary-400 transition-all duration-150"
-          style={{ width: `${scrollProgress}%` }}
+          className="h-full w-full bg-gradient-to-r from-primary-600 to-primary-400"
+          style={{
+            transform: `scaleX(${scrollProgress / 100})`,
+            transformOrigin: 'left',
+            willChange: 'transform',
+          }}
         />
       </div>
 
@@ -245,11 +273,11 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
               onComplete={() => setTimerReady(true)}
             />
 
-            {/* CTA */}
+            {/* CTA — sidebar version (visible on desktop) */}
             {timerReady && !showQuiz && (
               <button
                 onClick={handleStartQuiz}
-                className="btn-secondary w-full h-14 text-base uppercase tracking-wide rounded-xl relative overflow-hidden group animate-scale-in"
+                className="btn-secondary w-full h-14 text-base uppercase tracking-wide rounded-xl relative overflow-hidden group animate-scale-in hidden lg:flex"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
                 <Swords className="w-5 h-5 relative z-10" />
@@ -265,6 +293,20 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
           </div>
         </div>
       </div>
+
+      {/* Mobile sticky CTA — thumb zone (bottom of screen) */}
+      {timerReady && !showQuiz && (
+        <div className="mobile-sticky-bottom lg:hidden">
+          <button
+            onClick={handleStartQuiz}
+            className="btn-secondary w-full h-14 text-base uppercase tracking-wide rounded-xl relative overflow-hidden group animate-scale-in"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
+            <Swords className="w-5 h-5 relative z-10" />
+            <span className="relative z-10">Enfrentar o Teste (AOCP)</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }

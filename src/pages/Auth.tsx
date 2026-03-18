@@ -23,8 +23,8 @@ export function Auth() {
         if (signUpError) throw signUpError
         alert('Confirme seu email para continuar!')
       }
-    } catch (err: any) {
-      setError(err.message || 'Ocorreu um erro na autenticação')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Ocorreu um erro na autenticação')
     } finally {
       setLoading(false)
     }
@@ -53,6 +53,7 @@ export function Auth() {
           </div>
         )}
 
+        <fieldset disabled={loading} className="contents">
         <form onSubmit={handleAuth} className="space-y-5">
           <div className="relative group">
             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-primary-400 transition-colors" />
@@ -86,10 +87,12 @@ export function Auth() {
             {isLogin ? 'Entrar na Jornada' : 'Criar Conta'}
           </button>
         </form>
+        </fieldset>
 
         <button
           onClick={() => setIsLogin(!isLogin)}
-          className="mt-8 text-sm text-slate-500 hover:text-primary-400 transition-colors duration-200 p-2 cursor-pointer font-sans"
+          disabled={loading}
+          className="mt-8 text-sm text-slate-500 hover:text-primary-400 transition-colors duration-200 p-2 cursor-pointer font-sans disabled:opacity-50 disabled:pointer-events-none"
         >
           {isLogin ? 'Ainda não começou? Cadastre-se' : 'Já é um viajante? Fazer login'}
         </button>

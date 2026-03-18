@@ -38,7 +38,7 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
                         bg-gradient-to-r from-transparent via-dark-700 to-transparent
                         hidden lg:block z-0 pointer-events-none" />
 
-        <div className="flex flex-col lg:flex-row gap-4 md:gap-6 relative z-10">
+        <div className="flex flex-col lg:flex-row gap-5 md:gap-6 relative z-10">
           {quests.map((quest, idx) => {
             const Icon     = QUEST_ICONS[quest.type as keyof typeof QUEST_ICONS] || Star
             const label    = TYPE_LABELS[quest.type] || quest.type.replace('_', ' ')
@@ -55,9 +55,9 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
                 onKeyDown={(e) => e.key === 'Enter' && isAvail && onSelectQuest(quest)}
                 aria-disabled={!isAvail}
                 className={[
-                  'relative flex-1 rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8',
+                  'relative flex-1 rounded-[1.5rem] md:rounded-[2rem] p-6 md:p-8',
                   'transition-all duration-300',
-                  'active:scale-[0.98]',
+                  'active:scale-[0.98] active:transition-transform',
                   isAvail
                     ? 'glass-panel cursor-pointer hover:-translate-y-2 hover:shadow-primary-glow ring-1 ring-primary-500/40'
                     : isDone
@@ -67,7 +67,7 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
               >
                 {/* Mobile connector */}
                 {idx < quests.length - 1 && (
-                  <div className="absolute bottom-[-1.25rem] left-1/2 w-0.5 h-5
+                  <div className="absolute bottom-[-1.5rem] left-1/2 w-0.5 h-6
                                   bg-dark-700 -translate-x-1/2 lg:hidden" />
                 )}
 
@@ -103,19 +103,19 @@ export function QuestMap({ quests, onSelectQuest }: QuestMapProps) {
                 {/* Content */}
                 <div className="space-y-2.5">
                   <span className={[
-                    'text-[10px] font-black uppercase tracking-widest font-sans',
+                    'text-[11px] font-black uppercase tracking-widest font-sans',
                     isLocked ? 'text-dark-600' : 'text-slate-500',
                   ].join(' ')}>
                     {label}
                   </span>
                   <h3 className={[
-                    'text-base md:text-xl font-bold leading-snug font-mono',
+                    'text-lg md:text-xl font-bold leading-snug font-mono',
                     isLocked ? 'text-slate-600' : 'text-white',
                   ].join(' ')}>
                     {quest.title}
                   </h3>
                   <p className={[
-                    'text-sm font-sans line-clamp-2',
+                    'text-sm md:text-sm font-sans line-clamp-2 leading-relaxed',
                     isLocked ? 'text-slate-700' : 'text-slate-400',
                   ].join(' ')}>
                     {quest.topic}

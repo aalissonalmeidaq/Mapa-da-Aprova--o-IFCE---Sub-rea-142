@@ -18,7 +18,9 @@ function loadPersistedTimer(questId: string, durationSeconds: number) {
   try {
     const raw = localStorage.getItem(getStorageKey(questId))
     if (!raw) return { timeLeft: durationSeconds, running: false }
-    const { startTime, duration } = JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+    const startTime = typeof parsed.startTime === 'number' ? parsed.startTime : 0
+    const duration = typeof parsed.duration === 'number' ? parsed.duration : durationSeconds
     const elapsed = Math.floor((Date.now() - startTime) / 1000)
     const timeLeft = Math.max(0, duration - elapsed)
     return { timeLeft, running: timeLeft > 0 }
@@ -29,9 +31,11 @@ function loadPersistedTimer(questId: string, durationSeconds: number) {
 
 export function QuestTimer({ questId, durationMinutes, onComplete }: QuestTimerProps) {
   const durationSeconds = durationMinutes * 60
-  const [timeLeft, setTimeLeft] = useState(() => loadPersistedTimer(questId, durationSeconds).timeLeft)
-  const [isActive, setIsActive] = useState(() => loadPersistedTimer(questId, durationSeconds).running)
-  const [completed, setCompleted] = useState(timeLeft === 0)
+  // Single call to avoid double-read race condition
+  const [initialState] = useState(() => loadPersistedTimer(questId, durationSeconds))
+  const [timeLeft, setTimeLeft] = useState(initialState.timeLeft)
+  const [isActive, setIsActive] = useState(initialState.running)
+  const [completed, setCompleted] = useState(initialState.timeLeft === 0)
 
   const handleComplete = useCallback(() => {
     setIsActive(false)

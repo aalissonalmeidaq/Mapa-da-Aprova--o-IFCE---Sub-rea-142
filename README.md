@@ -35,10 +35,11 @@ Plataforma de estudos gamificada para o concurso de **Docência em Informática 
 ```
 src/
 ├── components/
+│   ├── ErrorBoundary.tsx      # Captura erros de renderização com tela de recuperação
 │   ├── MarkdownRenderer.tsx   # Renderiza o conteúdo Markdown da IA (com guards anti-tabela malformada)
-│   ├── QuestMap.tsx           # Grade visual de missões
-│   ├── QuestTimer.tsx         # Timer de sessão de estudo
-│   └── QuizEngine.tsx         # Motor de quiz (múltipla escolha)
+│   ├── QuestMap.tsx           # Grade visual de missões (touch-optimized)
+│   ├── QuestTimer.tsx         # Timer de sessão de estudo (SVG ring + localStorage)
+│   └── QuizEngine.tsx         # Motor de quiz (múltipla escolha, touch-friendly)
 ├── data/
 │   └── schedule.ts            # Cronograma de 42 dias (16/03 → 26/04)
 ├── lib/
@@ -47,11 +48,11 @@ src/
 │   ├── questCache.ts          # Cache de conteúdo (localStorage + Supabase)
 │   └── supabase.ts            # Cliente Supabase
 ├── pages/
-│   ├── Auth.tsx               # Página de autenticação
-│   └── QuestPlayer.tsx        # Interface principal de estudo
+│   ├── Auth.tsx               # Página de autenticação (fieldset disable on loading)
+│   └── QuestPlayer.tsx        # Interface principal de estudo (sticky mobile CTA)
 ├── store/
 │   └── userStore.ts           # Estado do usuário (Zustand)
-└── App.tsx                    # Roteador e dashboard
+└── App.tsx                    # Roteador, dashboard e ErrorBoundary
 supabase/
 └── migrations/
     └── 001_create_quest_contents.sql  # Tabela de cache de conteúdo gerado

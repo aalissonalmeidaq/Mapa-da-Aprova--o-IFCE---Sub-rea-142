@@ -86,8 +86,9 @@ export function sanitizeMarkdown(raw: string, topic: string): string {
 
   // ── 4. Remover comentários finais ───────────────────────────────
   // Remove linhas de fechamento geradas pelo modelo após o conteúdo.
+  // Non-greedy with 500 char cap — prevents ReDoS on large inputs
   text = text.replace(
-    /\n+(espero que (isso |este material |o material )?(ajude|seja útil|facilite)[^]*$)/im,
+    /\n+(espero que (?:isso |este material |o material )?(?:ajude|seja útil|facilite)[\s\S]{0,500})$/im,
     '',
   )
   text = text.replace(/\n+(bons estudos!?|sucesso!?|boa sorte!?)[\s]*$/im, '')

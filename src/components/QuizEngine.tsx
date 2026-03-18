@@ -80,7 +80,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
       </h2>
 
       {/* Options */}
-      <div className="space-y-3 mb-8">
+      <div className="space-y-3 sm:space-y-3 mb-8">
         {question.options.map((opt, idx) => {
           const isSelected = selectedOption === idx
           const isCorrect  = idx === question.correctIndex
@@ -104,7 +104,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
                 'w-full text-left p-4 md:p-5 rounded-[1.25rem] border-2',
                 'flex items-start gap-3 md:gap-4',
                 'font-medium transition-all duration-200',
-                'min-h-[3.5rem]',
+                'min-h-[3.5rem] sm:min-h-[3rem]',  /* 56px mobile / 48px desktop — per touch guidelines */
                 !showAnswer && isSelected ? 'scale-[1.01]' : '',
                 cls,
               ].join(' ')}
@@ -121,7 +121,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
                 {String.fromCharCode(65 + idx)}
               </div>
 
-              <span className="leading-relaxed text-sm md:text-base font-sans flex-1">{opt}</span>
+              <span className="leading-relaxed text-[0.938rem] md:text-base font-sans flex-1">{opt}</span>
 
               {showAnswer && isCorrect  && <CheckCircle2 className="w-6 h-6 ml-auto text-green-400 shrink-0 mt-0.5" />}
               {showAnswer && isSelected && !isCorrect && <XCircle className="w-6 h-6 ml-auto text-red-400 shrink-0 mt-0.5" />}
@@ -160,7 +160,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
             disabled={selectedOption === null}
             onClick={handleConfirm}
             className={[
-              'h-12 px-8 font-bold rounded-xl transition-all duration-200 font-sans',
+              'w-full sm:w-auto h-14 sm:h-12 px-8 font-bold rounded-xl transition-all duration-200 font-sans',
               selectedOption === null
                 ? 'bg-dark-700 text-slate-500 cursor-not-allowed'
                 : 'btn-primary cursor-pointer',
@@ -171,7 +171,7 @@ export function QuizEngine({ questions, onComplete }: QuizProps) {
         ) : (
           <button
             onClick={handleNext}
-            className="btn-secondary h-12 px-8 rounded-xl group flex items-center gap-2 cursor-pointer"
+            className="btn-secondary w-full sm:w-auto h-14 sm:h-12 px-8 rounded-xl group flex items-center justify-center gap-2 cursor-pointer"
           >
             {currentIdx < questions.length - 1 ? 'Próxima Questão' : 'Finalizar Sessão'}
             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />

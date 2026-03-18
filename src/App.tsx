@@ -6,6 +6,7 @@ import { useUserStore } from './store/userStore'
 import { Auth } from './pages/Auth'
 import { QuestMap, type Quest } from './components/QuestMap'
 import { QuestPlayer } from './pages/QuestPlayer'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { getQuestsForDate, getTodaySchedule, getCurrentWeek, getDaysUntilExam } from './data/schedule'
 
 function Dashboard() {
@@ -33,9 +34,9 @@ function Dashboard() {
     setViewState('RESULT')
     if (passed && activeQuest) {
       const idx = quests.findIndex(q => q.id === activeQuest.id)
+      if (idx === -1) return // guard: quest not found
       const updated = [...quests]
       updated[idx] = { ...updated[idx], status: 'completed' }
-      // Unlock next quest
       if (idx + 1 < updated.length && updated[idx + 1].status === 'locked') {
         updated[idx + 1] = { ...updated[idx + 1], status: 'available' }
       }
@@ -98,7 +99,7 @@ function Dashboard() {
               : 'A banca avaliadora identificou lacunas conceituais. Revise o material e tente novamente.'}
           </p>
 
-          <button onClick={() => setViewState('MAP')} className="btn-primary w-full h-12">
+          <button onClick={() => setViewState('MAP')} className="btn-primary w-full h-14 sm:h-12 text-base">
             Voltar ao Mapa
           </button>
         </div>
@@ -127,7 +128,7 @@ function Dashboard() {
               {user?.email?.charAt(0)}
             </div>
             <div>
-              <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 font-sans mb-0.5">
+              <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-slate-500 font-sans mb-0.5">
                 <Shield className="w-3 h-3" /> Candidato IFCE
               </div>
               <div className="text-white font-bold font-mono">
@@ -150,14 +151,14 @@ function Dashboard() {
 
         {/* Countdown & Stats */}
         <div className="flex flex-wrap items-center justify-center gap-3 md:gap-6 mb-6">
-          <div className="flex items-center gap-2 px-4 py-2 bg-dark-800/80 rounded-xl border border-white/5">
-            <Calendar className="w-4 h-4 text-primary-400" />
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-dark-800/80 rounded-xl border border-white/5">
+            <Calendar className="w-4 h-4 text-primary-400 shrink-0" />
             <span className="text-sm font-sans text-slate-400">
               <span className="text-white font-bold">{daysUntilExam}</span> dias para a prova
             </span>
           </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-dark-800/80 rounded-xl border border-white/5">
-            <Target className="w-4 h-4 text-secondary-400" />
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-dark-800/80 rounded-xl border border-white/5">
+            <Target className="w-4 h-4 text-secondary-400 shrink-0" />
             <span className="text-sm font-sans text-slate-400">
               Prova: <span className="text-white font-bold">26/04</span>
             </span>
@@ -212,6 +213,8 @@ function App() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchProfile(session.user.id)
+    }).catch(() => {
+      // Supabase offline / network failure — stay on auth screen
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -223,16 +226,18 @@ function App() {
   }, [])
 
   return (
-    <Router>
-      <div className="dark min-h-screen bg-dark-900 selection:bg-primary-500/30">
-        <Routes>
-          {/* Fixed routing — removed broken window.location.hash check */}
-          <Route path="/"          element={!user ? <Auth />        : <Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={ user ? <Dashboard />   : <Navigate to="/"          replace />} />
-          <Route path="*"          element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <div className="dark min-h-screen bg-dark-900 selection:bg-primary-500/30">
+          <Routes>
+            {/* Fixed routing — removed broken window.location.hash check */}
+            <Route path="/"          element={!user ? <Auth />        : <Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={ user ? <Dashboard />   : <Navigate to="/"          replace />} />
+            <Route path="*"          element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
+      </Router>
+    </ErrorBoundary>
   )
 }
 

@@ -55,12 +55,12 @@ async function callGemini(prompt: string, responseSchema?: object): Promise<stri
       if (!text) throw new Error('Resposta vazia da IA.')
 
       return text
-    } catch (err: any) {
-      lastError = err
-      if (err.message?.includes('quota') || err.message?.includes('rate')) {
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (lastError.message?.includes('quota') || lastError.message?.includes('rate')) {
         continue
       }
-      throw err
+      throw lastError
     }
   }
 
@@ -142,12 +142,12 @@ async function callGeminiStream(
       if (!accumulated) throw new Error('Resposta vazia da IA.')
       return accumulated
 
-    } catch (err: any) {
-      lastError = err
-      if (err.message?.includes('quota') || err.message?.includes('rate')) {
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (lastError.message?.includes('quota') || lastError.message?.includes('rate')) {
         continue
       }
-      throw err
+      throw lastError
     }
   }
 
