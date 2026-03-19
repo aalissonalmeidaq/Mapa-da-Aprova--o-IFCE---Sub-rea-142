@@ -7,6 +7,7 @@ interface UserProfile {
   level: number
   xp: number
   current_world: number
+  preferred_ai?: 'gemini' | 'deepseek'
 }
 
 interface UserState {
@@ -14,6 +15,7 @@ interface UserState {
   profile: UserProfile | null
   setUser: (user: User | null) => void
   setProfile: (profile: UserProfile | null) => void
+  setPreferredAI: (ai: 'gemini' | 'deepseek') => void
   fetchProfile: (userId: string) => Promise<void>
   signOut: () => Promise<void>
 }
@@ -23,10 +25,23 @@ export const useUserStore = create<UserState>((set) => ({
   profile: null,
   setUser: (user) => set({ user }),
   setProfile: (profile) => set({ profile }),
+  setPreferredAI: async (ai) => {
+    set((state) => ({
+      profile: state.profile ? { ...state.profile, preferred_ai: ai } : null
+    }))
+    localStorage.setItem('preferred_ai', ai)
+    
+    const userId = (await supabase.auth.getUser()).data.user?.id
+    if (userId) {
+      await supabase.from('profiles').update({ preferred_ai: ai }).eq('id', userId)
+    }
+  },
   fetchProfile: async (userId) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single()
     if (!error && data) {
-      set({ profile: data })
+      // Merge with localStorage preference if exists
+      const savedAI = localStorage.getItem('preferred_ai') as 'gemini' | 'deepseek' | null
+      set({ profile: { ...data, preferred_ai: savedAI || data.preferred_ai || 'deepseek' } })
     }
   },
   signOut: async () => {

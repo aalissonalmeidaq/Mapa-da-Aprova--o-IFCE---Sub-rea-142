@@ -1,4 +1,5 @@
 import type { Quest } from '../components/QuestMap'
+import { PRD_PROMPTS } from './prompts'
 
 export interface DaySchedule {
   date: string
@@ -60,7 +61,7 @@ function parseDate(dateStr: string): Date {
   return new Date(2026, month - 1, day)
 }
 
-function getWeekNumber(dateStr: string): number {
+export function getWeekNumber(dateStr: string): number {
   const startDate = parseDate('16/03')
   const currentDate = parseDate(dateStr)
   const diffDays = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
@@ -79,11 +80,27 @@ export function getQuestsForDate(dateStr?: string): Quest[] {
     return `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`
   })()
 
+  const dayId = targetDate.replace('/', '-')
+  const entries = PRD_PROMPTS[targetDate]
+
+  // If we have explicit PRD entries, use them to generate 1h quests
+  if (entries && entries.length > 0) {
+    return entries.map((entry, idx) => ({
+      id: `${dayId}-h${idx + 1}`,
+      title: entry.topic,
+      topic: entry.topic,
+      type: entry.type,
+      status: idx === 0 ? 'available' : 'locked',
+      duration: 60,
+      xpReward: 150
+    }))
+  }
+
+  // Fallback to legacy scheduling logic if date not in PRD_PROMPTS
   const day = SCHEDULE.find(s => s.date === targetDate)
   if (!day) return []
 
   const quests: Quest[] = []
-  const dayId = targetDate.replace('/', '-')
 
   if (day.specificTopics && day.specificTopics !== 'Nenhum' && day.specificTopics !== 'DIA DA PROVA OBJETIVA') {
     quests.push({

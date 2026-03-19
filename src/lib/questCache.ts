@@ -12,7 +12,7 @@
 
 import { supabase } from './supabase'
 
-const LS_PREFIX = 'quest_cache_v2_'
+const LS_PREFIX = 'quest_cache_v4_' // Incremented for DeepSeek reset
 
 // ──────────────────────────────────────────────
 // Tipos

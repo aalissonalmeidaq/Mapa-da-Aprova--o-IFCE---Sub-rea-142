@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/api/deepseek/:path*",
+      "destination": "/api/deepseek/:path*"
+    },
+    {
+      "source": "/api/gemini/:path*",
+      "destination": "/api/gemini/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
