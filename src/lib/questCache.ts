@@ -42,13 +42,19 @@ export async function getCachedContent(questId: string): Promise<CacheResult> {
     // ignorar erros de localStorage (modo privado, etc.)
   }
 
-  // 2️⃣ Supabase — persistência real
+  // 2️⃣ Supabase — persistência real (com timeout de 5s)
   try {
-    const { data, error } = await supabase
+    const supabaseQuery = supabase
       .from('quest_contents')
       .select('content')
       .eq('quest_id', questId)
       .maybeSingle()
+
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Supabase timeout')), 5_000),
+    )
+
+    const { data, error } = await Promise.race([supabaseQuery, timeoutPromise])
 
     if (!error && data?.content) {
       // Preenchemos o localStorage para próximas visitas serem instantâneas

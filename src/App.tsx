@@ -20,27 +20,6 @@ function Dashboard() {
   const [viewState, setViewState] = useState<'MAP' | 'QUEST' | 'RESULT' | 'PROFILE' | 'SETTINGS'>('MAP')
   const [lastResult, setLastResult] = useState<{ score: number; passed: boolean } | null>(null)
   
-  // Reset cache globally once for DeepSeek transition
-  useEffect(() => {
-    const purgeCacheForDeepSeek = async () => {
-      const purged = localStorage.getItem('deepseek_purge_v1')
-      if (purged) return
-      
-      console.log('🔄 Iniciando limpeza global de cache para DeepSeek...')
-      try {
-        // Remove all records from supabase (since ID is uuid, we use a range or just not empty)
-        const { error } = await supabase.from('quest_contents').delete().neq('quest_id', '')
-        if (!error) {
-          localStorage.setItem('deepseek_purge_v1', 'true')
-          console.log('✅ Cache global limpo com sucesso.')
-        }
-      } catch (err) {
-        console.error('❌ Falha ao limpar cache global:', err)
-      }
-    }
-    purgeCacheForDeepSeek()
-  }, [])
-
   const handleSelectQuest = (q: Quest) => {
     setActiveQuest(q)
     setViewState('QUEST')

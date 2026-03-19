@@ -1,53 +1,67 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+export const runtime = 'edge'
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: Request) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+      status: 405,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
-  const targetPath = Array.isArray(req.query.path) ? req.query.path.join('/') : req.query.path || ''
+  const url = new URL(req.url)
+  // Remove o prefixo "/api/deepseek" do path
+  const targetPath = url.pathname.replace(/^\/api\/deepseek\/?/, '')
   const targetUrl = `https://api.deepseek.com/${targetPath}`
 
+  let body: any
   try {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    }
-    if (req.headers.authorization) {
-      headers['Authorization'] = req.headers.authorization as string
-    }
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
-    const isStream = req.body?.stream === true
+  const isStream = body?.stream === true
 
+  try {
     const response = await fetch(targetUrl, {
       method: 'POST',
-      headers,
-      body: JSON.stringify(req.body),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': req.headers.get('Authorization') ?? '',
+      },
+      body: JSON.stringify(body),
     })
 
     if (!response.ok) {
-      const errorText = await response.text()
-      return res.status(response.status).send(errorText)
+      const error = await response.text()
+      return new Response(error, {
+        status: response.status,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     if (isStream && response.body) {
-      res.setHeader('Content-Type', 'text/event-stream')
-      res.setHeader('Cache-Control', 'no-cache')
-      res.setHeader('Connection', 'keep-alive')
-
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        res.write(decoder.decode(value, { stream: true }))
-      }
-      res.end()
-    } else {
-      const data = await response.json()
-      return res.status(200).json(data)
+      // Pipe direto — Edge Runtime suporta streaming longo sem timeout fixo
+      return new Response(response.body, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'X-Accel-Buffering': 'no',
+        },
+      })
     }
+
+    const data = await response.json()
+    return new Response(JSON.stringify(data), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err: any) {
-    return res.status(500).json({ error: err.message || 'Proxy error' })
+    return new Response(JSON.stringify({ error: err.message ?? 'Proxy error' }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }

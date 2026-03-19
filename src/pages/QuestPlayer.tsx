@@ -74,6 +74,15 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
 
   useEffect(() => {
     let cancelled = false
+    let rafId = 0
+    let pendingChunk = ''
+
+    function flushChunk() {
+      rafId = 0
+      if (cancelled) return
+      setContent(pendingChunk)
+      setLoadingContent(false)
+    }
 
     async function fetchQuest() {
       // 1️⃣ Verificar cache (localStorage → Supabase) antes de chamar a API
@@ -87,39 +96,43 @@ export function QuestPlayer({ questId, topic, type, onBack, onComplete }: { ques
         return
       }
 
-      // 2️⃣ Cache miss — gerar via Gemini com streaming
+      // 2️⃣ Cache miss — gerar via IA com streaming
       try {
-        console.log('🔍 Iniciando geração via IA:', { questId, topic, type })
-        setError(null) // Reset error state on new attempt
-        
+        if (!cancelled) setError(null)
+
         const finalContent = await generateQuestContent(questId, topic, type, (accumulated) => {
-          if (!cancelled && accumulated.length > 0) {
-            // Durante o streaming mostra o conteúdo parcial diretamente
-            setContent(accumulated)
-            setLoadingContent(false)
-          }
+          if (cancelled || accumulated.length === 0) return
+          // Throttle: agrupa todos os chunks que chegam no mesmo frame de animação
+          pendingChunk = accumulated
+          if (!rafId) rafId = requestAnimationFrame(flushChunk)
         })
-        
-        // Sanitiza o conteúdo completo, atualiza a tela e salva no cache
+
+        // Cancela rAF pendente antes de atualizar com o conteúdo final sanitizado
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0 }
+
         if (!cancelled && finalContent) {
-          console.log('✅ Geração concluída:', finalContent.length, 'chars')
           const clean = sanitizeMarkdown(finalContent, topic)
           setContent(clean)
-          setLoadingContent(false) // Just in case streaming didn't fire
+          setLoadingContent(false)
           setCacheSource(null)
           await saveCachedContent(questId, topic, type, clean)
         } else if (!cancelled) {
-          throw new Error('A IA não retornou nenhum conteúdo válido. Verifique suas chaves de API ou tente outro motor.')
+          throw new Error('A IA não retornou conteúdo válido. Verifique as chaves de API ou troque o motor nas Configurações.')
         }
       } catch (err: any) {
         if (cancelled) return
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0 }
         console.error('QuestPlayer fetchQuest error:', err)
         setError(err.message || 'Falha na comunicação com a IA')
-        setLoadingContent(false) // Ensure we stop loading on error
+        setLoadingContent(false)
       }
     }
+
     fetchQuest()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [questId, topic, type])
 
   const handleStartQuiz = async () => {

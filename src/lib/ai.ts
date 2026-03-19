@@ -24,33 +24,44 @@ async function callAI(prompt: string, jsonMode: boolean = false): Promise<string
 }
 
 async function callDeepSeek(prompt: string, jsonMode: boolean = false): Promise<string> {
-  const response = await fetch('/api/deepseek/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      response_format: jsonMode ? { type: 'json_object' } : undefined,
-      stream: false
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 60_000)
+
+  try {
+    const response = await fetch('/api/deepseek/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        response_format: jsonMode ? { type: 'json_object' } : undefined,
+        stream: false
+      }),
+      signal: controller.signal,
     })
-  })
 
-  if (!response.ok) {
-    let errorMsg = response.statusText
-    try {
-      const errorJson = await response.json()
-      errorMsg = errorJson.error?.message || errorJson.message || response.statusText
-    } catch {
-      errorMsg = await response.text() || response.statusText
+    if (!response.ok) {
+      let errorMsg = response.statusText
+      try {
+        const errorJson = await response.json()
+        errorMsg = errorJson.error?.message || errorJson.message || response.statusText
+      } catch {
+        errorMsg = await response.text() || response.statusText
+      }
+      throw new Error(`DeepSeek (${response.status}): ${errorMsg.slice(0, 120)}`)
     }
-    throw new Error(`DeepSeek (${response.status}): ${errorMsg.slice(0, 100)}`)
-  }
 
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || ''
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || ''
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw new Error('DeepSeek: tempo limite de 60s excedido')
+    throw err
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 async function callGemini(prompt: string, jsonMode: boolean = false): Promise<string> {
@@ -60,22 +71,31 @@ async function callGemini(prompt: string, jsonMode: boolean = false): Promise<st
   }
 
   for (const model of GEMINI_MODELS) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 60_000)
     try {
       const url = `/api/gemini/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`
-        
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       })
 
       const data = await response.json()
       if (!response.ok) throw new Error(data.error?.message || response.statusText)
 
-      return data.candidates?.[0]?.content?.parts?.[0]?.text || ''
-    } catch { continue }
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+      if (text) return text
+    } catch (err: any) {
+      if (err.name === 'AbortError') continue // tenta próximo modelo
+      console.warn(`Gemini (${model}) falhou:`, err.message)
+      continue
+    } finally {
+      clearTimeout(timeout)
+    }
   }
-  throw new Error('Gemini falhou')
+  throw new Error('Gemini: todos os modelos falharam')
 }
 
 /** Streaming implementation — with auto-fallback racing */
@@ -127,42 +147,47 @@ async function callAIStream(
 }
 
 async function callDeepSeekStream(prompt: string, onChunk: (acc: string) => void): Promise<string> {
-  const response = await fetch('/api/deepseek/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      stream: true,
-      max_tokens: 4000
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120_000) // 2min para geração longa
+
+  try {
+    const response = await fetch('/api/deepseek/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'user', content: prompt }],
+        stream: true,
+        max_tokens: 4096
+      }),
+      signal: controller.signal,
     })
-  })
 
-  if (!response.ok) {
-    const errorBody = await response.text()
-    throw new Error(`DeepSeek Stream Error: ${response.status} - ${errorBody}`)
-  }
+    if (!response.ok) {
+      const errorBody = await response.text()
+      throw new Error(`DeepSeek (${response.status}): ${errorBody.slice(0, 120)}`)
+    }
 
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('Stream reader not available')
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('Stream reader indisponível')
 
-  const decoder = new TextDecoder()
-  let accumulated = ''
-  let buffer = ''
+    const decoder = new TextDecoder()
+    let accumulated = ''
+    let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
 
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || '' // Keep incomplete line in buffer
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
 
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue
         const dataStr = line.slice(6).trim()
         if (dataStr === '[DONE]') continue
         try {
@@ -172,17 +197,27 @@ async function callDeepSeekStream(prompt: string, onChunk: (acc: string) => void
             accumulated += content
             onChunk(accumulated)
           }
-        } catch { /* skip incomplete/invalid JSON */ }
+        } catch { /* skip JSON inválido */ }
       }
     }
+
+    if (accumulated.length === 0) throw new Error('DeepSeek retornou conteúdo vazio')
+    return accumulated
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw new Error('DeepSeek: tempo limite de 2min excedido')
+    throw err
+  } finally {
+    clearTimeout(timeout)
   }
-  return accumulated
 }
 
 async function callGeminiStream(prompt: string, onChunk: (acc: string) => void): Promise<string> {
   const body = { contents: [{ parts: [{ text: prompt }] }] }
 
   for (const model of GEMINI_MODELS) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 120_000)
+
     try {
       const url = `/api/gemini/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`
 
@@ -190,9 +225,14 @@ async function callGeminiStream(prompt: string, onChunk: (acc: string) => void):
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: controller.signal,
       })
 
-      if (!response.ok) continue
+      if (!response.ok) {
+        const errText = await response.text().catch(() => response.statusText)
+        console.warn(`Gemini stream (${model}) ${response.status}:`, errText.slice(0, 100))
+        continue
+      }
 
       const reader = response.body?.getReader()
       if (!reader) continue
@@ -200,35 +240,42 @@ async function callGeminiStream(prompt: string, onChunk: (acc: string) => void):
       const decoder = new TextDecoder()
       let accumulated = ''
       let buffer = ''
-      
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        
+
         buffer += decoder.decode(value, { stream: true })
         const lines = buffer.split('\n')
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const event = JSON.parse(line.slice(6))
-              const text = event.candidates?.[0]?.content?.parts?.[0]?.text
-              if (text) {
-                accumulated += text
-                onChunk(accumulated)
-              }
-            } catch { }
-          }
+          if (!line.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(line.slice(6))
+            const text = event.candidates?.[0]?.content?.parts?.[0]?.text
+            if (text) {
+              accumulated += text
+              onChunk(accumulated)
+            }
+          } catch { /* skip JSON inválido */ }
         }
       }
+
       if (accumulated.length > 0) return accumulated
+      console.warn(`Gemini stream (${model}): acumulado vazio, tentando próximo modelo`)
     } catch (err: any) {
-      console.error(`Gemini stream error with model ${model}:`, err)
+      if (err.name === 'AbortError') {
+        console.warn(`Gemini stream (${model}): timeout`)
+        continue
+      }
+      console.error(`Gemini stream (${model}):`, err.message)
       continue
+    } finally {
+      clearTimeout(timeout)
     }
   }
-  throw new Error('Não foi possível gerar o conteúdo com o Google Gemini. Verifique sua chave de API e conexão.')
+  throw new Error('Gemini: não foi possível gerar o conteúdo. Verifique a chave de API ou troque o motor para DeepSeek.')
 }
 
 export async function generateQuestContent(
